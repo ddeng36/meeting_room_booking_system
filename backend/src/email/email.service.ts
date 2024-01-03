@@ -7,24 +7,24 @@ export class EmailService {
 
     transporter: Transporter
     
-    constructor(private configService: ConfigService) { 
-      console.log(1111111111111111+ this.configService.get<string>('EMAIL_USER')) 
+    constructor(private configService: ConfigService) {
       this.transporter = createTransport({
-          host: "smtp.qq.com",
-          port: 587,
+          host: this.configService.get('nodemailer_host'),
+          port: this.configService.get('nodemailer_port'),
           secure: false,
           auth: {
-              user: this.configService.get<string>('EMAIL_USER'),
-              pass: this.configService.get<string>('EMAIL_PASSWORD'),
+              user: this.configService.get('nodemailer_auth_user'),
+              pass: this.configService.get('nodemailer_auth_pass')
           },
       });
-      }
+    }
+    
     
     async sendMail({ to, subject, html }) {
       await this.transporter.sendMail({
         from: {
           name: 'Meeting Room Booking System',
-          address: this.configService.get<string>('EMAIL_USER')
+          address: this.configService.get<string>('nodemailer_auth_user')
         },
         to,
         subject,
