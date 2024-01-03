@@ -8,4 +8,4 @@ MySQL
 Redis
 
 backend interface:
-[1. Register and CAPTCHA](/assets/01.awebp)
+[1. Register and CAPTCHA](/assets/1.png)
