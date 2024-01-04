@@ -5,12 +5,14 @@ This is a meeting room booking system, which can be used by the company to book 
 
 ## System Architecture
 Frontend: React, Ant Design
-Backend: Nest.js, TypeORM,
+Backend: Nest.js, TypeORM, Swagger
 Database: MySQL, Redis
 DevOps: Docker, NGINX
 
 ## Features
 ### backend interface:
+#### Interface document
+The document is on http://localhost:3000/api-doc, start server before access it.
 #### User management
 1. Register and CAPTCHA
 2. Login with password, access with JWT token

@@ -17,6 +17,7 @@ import { LoginUserDto } from './dto/login-user.dto';
 import { LoginUserVo } from './vo/login-user.vo';
 import { UpdateUserPasswordDto } from './dto/update-user-password.dto';
 import { UpdateUserDto } from './dto/udpate-user.dto';
+import { UserListVo } from './vo/user-list.vo';
 @Injectable()
 export class UserService {
   private logger: Logger = new Logger();
@@ -65,10 +66,8 @@ export class UserService {
       await this.userRepository.save(newUser);
       return 'Success to register the user';
     } catch (e) {
-      throw new HttpException(
-        'Fail to register the user',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.logger.error(e, UserService.name);
+      return 'Fail to register the user';
     }
   }
 
@@ -241,10 +240,12 @@ export class UserService {
         where: condition
     });
 
-    return {
-        users,
-        totalCount
-    }
+    const vo = new UserListVo();
+
+    vo.users = users;
+    vo.totalCount = totalCount;
+    return vo;
+    
 }
   async initData() {
     // 1. clear all table with foreign key
