@@ -1,13 +1,29 @@
+# Meeting Room Booking System
 
-React 
-Ant Design
-NGINX
-Nest.js
-TypeORM
-MySQL
-Redis
+## Introduction
+This is a meeting room booking system, which can be used by the company to book meeting rooms.
 
-backend interface:
-[1. Register and CAPTCHA](/assets/1.png)
-[2. Login with JWT token or password](/assets/2.png)
-3. Update user info and password(use interceptor to implements log)
+## System Architecture
+Frontend: React, Ant Design
+Backend: Nest.js, TypeORM, Swagger
+Database: MySQL, Redis
+DevOps: Docker, NGINX
+
+## Features
+### backend interface:
+#### Interface document
+The document is on http://localhost:3000/api-doc, start server before access it.
+#### User management
+1. Register and CAPTCHA
+2. Login with password, access with JWT token
+3. Update user info and password
+4. User list and pagination, search and filter
+5. freeze user
+
+
+### backend AOP implementation:
+1. use Interceptors to implements log, and customize response
+2. use Guards to validate loin user and permission
+3. use Pipes to validate request body
+4. use Swagger to document api
+5. use Filter to customize exception error

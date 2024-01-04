@@ -29,7 +29,7 @@ export class InvokeRecordInterceptor implements NestInterceptor {
     this.logger.debug(`user: ${request.user?.userId}, ${request.user?.username}`);
 
     const now = Date.now();
-    // 2. excute controller
+    // 2. execute controller
     // 3. after controller executed, log the response
     return next.handle().pipe(
       tap((res) => {

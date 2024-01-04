@@ -6,6 +6,8 @@ import {
   Query,
   Get,
   UnauthorizedException,
+  DefaultValuePipe,
+  HttpStatus,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { RegisterUserDto } from './dto/register-user.dto';
@@ -15,11 +17,21 @@ import { LoginUserDto } from './dto/login-user.dto';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { RequireLogin, UserInfo } from 'src/custom.decorator';
-import { UserDetailVo } from './vo/login-user.vo';
-import Password from 'antd/es/input/Password';
+import { LoginUserVo, UserDetailVo } from './vo/login-user.vo';
 import { UpdateUserPasswordDto } from './dto/update-user-password.dto';
 import { UpdateUserDto } from './dto/udpate-user.dto';
+import { generateParseIntPipe } from 'src/utils';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { RefreshTokenVo } from './vo/refresh-token.vo';
+import { UserListVo } from './vo/user-list.vo';
 
+@ApiTags('User Management')
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) {}
@@ -35,14 +47,38 @@ export class UserController {
   @Inject(ConfigService)
   private configService: ConfigService;
 
+  @ApiBody({ type: RegisterUserDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Success/Fail to register the user',
+    type: String,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description:
+      'CAPTCHA is expired/CAPTCHA is not match/Username is already exist',
+    type: String,
+  })
   @Post('register')
   async register(@Body() registerUser: RegisterUserDto) {
     await this.userService.register(registerUser);
     return 'Success to register the user';
   }
 
+  @ApiQuery({
+    name: 'address',
+    type: String,
+    description: 'email address',
+    required: true,
+    example: 'xx@xx.com',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Success to send the CAPTCHA',
+    type: String,
+  })
   @Get('register-captcha')
-  async capthca(@Query('address') address: string) {
+  async captcha(@Query('address') address: string) {
     const code = Math.random().toString().slice(2, 8);
     await this.redisService.set(`captcha_${address}`, code, 5 * 60);
     await this.emailService.sendMail({
@@ -53,6 +89,17 @@ export class UserController {
     return 'success to send the CAPTCHA';
   }
 
+  @ApiBody({ type: LoginUserDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'user not exist/username or password is not match',
+    type: String,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'userinfo and JWT',
+    type: LoginUserVo,
+  })
   @Post('login')
   async userLogin(@Body() loginUser: LoginUserDto) {
     // 1. get vo from service
@@ -85,6 +132,17 @@ export class UserController {
     return vo;
   }
 
+  @ApiBody({ type: LoginUserDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'user not exist/username or password is not match',
+    type: String,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'userinfo and JWT',
+    type: LoginUserVo,
+  })
   @Post('admin/login')
   async adminLogin(@Body() loginUser: LoginUserDto) {
     const vo = await this.userService.login(loginUser, true);
@@ -115,6 +173,22 @@ export class UserController {
     return vo;
   }
 
+  @ApiQuery({
+    name: 'refreshToken',
+    type: String,
+    description: 'refresh token',
+    required: true,
+    example: 'xxxxxxxxyyyyyyyyzzzzz',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'token expired, please login again',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'success to refresh token',
+    type: RefreshTokenVo,
+  })
   @Get('refresh')
   async refresh(@Query('refreshToken') refreshToken: string) {
     try {
@@ -145,16 +219,33 @@ export class UserController {
             this.configService.get('jwt_refresh_token_expres_time') || '7d',
         },
       );
+      const vo = new RefreshTokenVo();
 
-      return {
-        access_token,
-        refresh_token,
-      };
+      vo.access_token = access_token;
+      vo.refresh_token = refresh_token;
+
+      return vo;
     } catch (e) {
       throw new UnauthorizedException('Expired token, please login again');
     }
   }
 
+  @ApiQuery({
+    name: 'refreshToken',
+    type: String,
+    description: 'refresh token',
+    required: true,
+    example: 'xxxxxxxxyyyyyyyyzzzzz',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'token expired, please login again',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'success to refresh token',
+    type: RefreshTokenVo,
+  })
   @Get('admin/refresh')
   async adminRefresh(@Query('refreshToken') refreshToken: string) {
     try {
@@ -194,6 +285,12 @@ export class UserController {
     }
   }
 
+  @ApiBearerAuth()
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'success to get user info',
+    type: UserDetailVo,
+  })
   @Get('info')
   @RequireLogin()
   async info(@UserInfo('userId') userId: number) {
@@ -215,6 +312,14 @@ export class UserController {
     return vo;
   }
 
+  @ApiBearerAuth()
+  @ApiBody({
+    type: UpdateUserPasswordDto,
+  })
+  @ApiResponse({
+    type: String,
+    description: 'invalid password',
+  })
   @Post(['update_password', 'admin/update_password'])
   @RequireLogin()
   async updatePassword(
@@ -224,6 +329,17 @@ export class UserController {
     return await this.userService.updatePassword(userId, passWordDto);
   }
 
+  @ApiBearerAuth()
+  @ApiQuery({
+    name: 'address',
+    description: 'email address',
+    type: String,
+  })
+  @ApiResponse({
+    type: String,
+    description: 'success to send the CAPTCHA',
+  })
+  @RequireLogin()
   @Get('update_password/captcha')
   async updatePasswordCaptcha(@Query('address') address: string) {
     const code = Math.random().toString().slice(2, 8);
@@ -241,7 +357,7 @@ export class UserController {
     });
     return '发送成功';
   }
-  
+
   @Post(['update', 'admin/update'])
   @RequireLogin()
   async update(
@@ -251,20 +367,108 @@ export class UserController {
     return await this.userService.update(userId, updateUserDto);
   }
 
+  @ApiBearerAuth()
+  @ApiBody({
+    type: UpdateUserDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'invalid password',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'success to update user info',
+    type: String,
+  })
   @Get('update/captcha')
-async updateCaptcha(@Query('address') address: string) {
-    const code = Math.random().toString().slice(2,8);
+  async updateCaptcha(@Query('address') address: string) {
+    const code = Math.random().toString().slice(2, 8);
 
-    await this.redisService.set(`update_user_captcha_${address}`, code, 10 * 60);
+    await this.redisService.set(
+      `update_user_captcha_${address}`,
+      code,
+      10 * 60,
+    );
 
     await this.emailService.sendMail({
       to: address,
       subject: 'Update User info',
-      html: `<p>your CAPTCHA ${code}</p>`
+      html: `<p>your CAPTCHA ${code}</p>`,
     });
     return 'success';
-}
+  }
+  @ApiBearerAuth()
+  @ApiQuery({
+    name: 'id',
+    description: 'userId',
+    type: Number,
+  })
+  @ApiResponse({
+    type: String,
+    description: 'success',
+  })
+  @RequireLogin()
+  @Get('freeze')
+  async freeze(@Query('id') userId: number) {
+    await this.userService.freezeUserById(userId);
+    return 'success';
+  }
 
+
+  @RequireLogin()
+  @ApiBearerAuth()
+  @ApiQuery({
+    name: 'pageNo',
+    description: 'page number',
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'pageSize',
+    description: 'page size',
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'username',
+    description: 'username',
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'nickName',
+    description: 'nickName',
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'email',
+    description: 'email',
+    type: Number,
+  })
+  @ApiResponse({
+    type: UserListVo,
+    description: 'success',
+  })
+  @RequireLogin()
+  @Get('list')
+  async list(
+    @Query('pageNo', new DefaultValuePipe(2), generateParseIntPipe('pageNo'))
+    pageNo: number,
+    @Query(
+      'pageSize',
+      new DefaultValuePipe(1),
+      generateParseIntPipe('pageSize'),
+    )
+    pageSize: number,
+    @Query('username') username: string,
+    @Query('nickName') nickName: string,
+    @Query('email') email: string,
+  ) {
+    return await this.userService.findUsersByPage(
+      username,
+      nickName,
+      email,
+      pageNo,
+      pageSize,
+    );
+  }
 
   @Get('init-data')
   async initData() {

@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
-import { Repository } from 'typeorm';
+import { Like, Repository } from 'typeorm';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { RedisService } from 'src/redis/redis.service';
 import { Role } from './entities/role.entity';
@@ -17,6 +17,7 @@ import { LoginUserDto } from './dto/login-user.dto';
 import { LoginUserVo } from './vo/login-user.vo';
 import { UpdateUserPasswordDto } from './dto/update-user-password.dto';
 import { UpdateUserDto } from './dto/udpate-user.dto';
+import { UserListVo } from './vo/user-list.vo';
 @Injectable()
 export class UserService {
   private logger: Logger = new Logger();
@@ -65,10 +66,8 @@ export class UserService {
       await this.userRepository.save(newUser);
       return 'Success to register the user';
     } catch (e) {
-      throw new HttpException(
-        'Fail to register the user',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      this.logger.error(e, UserService.name);
+      return 'Fail to register the user';
     }
   }
 
@@ -143,9 +142,11 @@ export class UserService {
     };
   }
 
-  async updatePassword(userId: number, passwordDto: UpdateUserPasswordDto){
+  async updatePassword(userId: number, passwordDto: UpdateUserPasswordDto) {
     // 1. check if CAPTCHA is valid? (expired?, match?)
-    const captcha = await this.redisService.get(`update_password_captcha_${passwordDto.email}`);
+    const captcha = await this.redisService.get(
+      `update_password_captcha_${passwordDto.email}`,
+    );
     if (!captcha) {
       throw new HttpException('CAPTCHA is expired', HttpStatus.BAD_REQUEST);
     }
@@ -155,23 +156,28 @@ export class UserService {
 
     // 2. find user's object and modify it's password
     const foundUser = await this.userRepository.findOneBy({
-      id: userId
+      id: userId,
     });
     foundUser.password = md5(passwordDto.password);
 
     // 3. save user to database
-    try{
+    try {
       this.userRepository.save(foundUser);
       return 'Success to update password';
-    }catch(e){
-      this.logger.error(e,UserService.name);
-      throw new HttpException('Fail to update password', HttpStatus.INTERNAL_SERVER_ERROR);
+    } catch (e) {
+      this.logger.error(e, UserService.name);
+      throw new HttpException(
+        'Fail to update password',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
   async update(userId: number, updateUserDto: UpdateUserDto) {
     // 1. check if CAPTCHA is valid? (expired?, match?)
-    const captcha = await this.redisService.get(`update_user_captcha_${updateUserDto.email}`);
+    const captcha = await this.redisService.get(
+      `update_user_captcha_${updateUserDto.email}`,
+    );
     if (!captcha) {
       throw new HttpException('CAPTCHA is expired', HttpStatus.BAD_REQUEST);
     }
@@ -181,26 +187,81 @@ export class UserService {
 
     // 2. find user's object and modify the info if it's not empty
     const foundUser = await this.userRepository.findOneBy({
-      id: userId
+      id: userId,
     });
-    if(updateUserDto.headPic){
+    if (updateUserDto.headPic) {
       foundUser.headPic = updateUserDto.headPic;
     }
-    if(updateUserDto.nickName){
+    if (updateUserDto.nickName) {
       foundUser.nickName = updateUserDto.nickName;
     }
 
     // 3. save user to database
-    try{
+    try {
       this.userRepository.save(foundUser);
       return 'Success to update user info';
-    }catch(e){
-      this.logger.error(e,UserService.name);
-      throw new HttpException('Fail to update user info', HttpStatus.INTERNAL_SERVER_ERROR);
+    } catch (e) {
+      this.logger.error(e, UserService.name);
+      throw new HttpException(
+        'Fail to update user info',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
+  async freezeUserById(id: number) {
+    const user = await this.userRepository.findOneBy({
+      id,
+    });
 
+    user.isFrozen = true;
+    await this.userRepository.save(user);
+    return 'Success to freeze the user';
+  }
+
+  async findUsersByPage(username: string, nickName: string, email: string, pageNo: number, pageSize: number) {
+    const skipCount = (pageNo - 1) * pageSize;
+
+    const condition: Record<string, any> = {};
+
+    if(username) {
+        condition.username = Like(`%${username}%`);   
+    }
+    if(nickName) {
+        condition.nickName = Like(`%${nickName}%`); 
+    }
+    if(email) {
+        condition.email = Like(`%${email}%`); 
+    }
+
+    const [users, totalCount] = await this.userRepository.findAndCount({
+        select: ['id', 'username', 'nickName', 'email', 'phoneNumber', 'isFrozen', 'headPic', 'createTime'],
+        skip: skipCount,
+        take: pageSize,
+        where: condition
+    });
+
+    const vo = new UserListVo();
+
+    vo.users = users;
+    vo.totalCount = totalCount;
+    return vo;
+    
+}
   async initData() {
+    // 1. clear all table with foreign key
+    // delete forein key
+    await this.userRepository.query('SET FOREIGN_KEY_CHECKS = 0');
+    await this.roleRepository.query('SET FOREIGN_KEY_CHECKS = 0');
+    await this.permissionRepository.query('SET FOREIGN_KEY_CHECKS = 0');
+    // clear table
+    await this.userRepository.clear();
+    await this.roleRepository.clear();
+    await this.permissionRepository.clear();
+    //clear many to many table
+    await this.userRepository.query('truncate user_roles');
+    await this.roleRepository.query('truncate role_permissions');
+
+    // 2. create data
     const user1 = new User();
     user1.username = 'zhangsan';
     user1.password = md5('111111');
