@@ -3,12 +3,12 @@ import { IsNotEmpty } from "class-validator";
 export class LoginUserDto {
 
     @IsNotEmpty({
-        message: "用户名不能为空"
+        message: "username cannot be empty"
     })
     username: string;
     
     @IsNotEmpty({
-        message: '密码不能为空'
+        message: 'password cannot be empty'
     })
     password: string;    
 }

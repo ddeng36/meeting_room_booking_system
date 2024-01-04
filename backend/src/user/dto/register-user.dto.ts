@@ -3,33 +3,33 @@ import { IsEmail, IsNotEmpty, MinLength } from "class-validator";
 export class RegisterUserDto {
 
     @IsNotEmpty({
-        message: "用户名不能为空"
+        message: "username cannot be empty"
     })
     username: string;
     
     @IsNotEmpty({
-        message: '昵称不能为空'
+        message: 'nickname cannot be empty'
     })
     nickName: string;
     
     @IsNotEmpty({
-        message: '密码不能为空'
+        message: 'password cannot be empty'
     })
     @MinLength(6, {
-        message: '密码不能少于 6 位'
+        message: 'password cannot be less than 6 characters'
     })
     password: string;
     
     @IsNotEmpty({
-        message: '邮箱不能为空'
+        message: 'email cannot be empty'
     })
     @IsEmail({}, {
-        message: '不是合法的邮箱格式'
+        message: 'invalid email format'
     })
     email: string;
     
     @IsNotEmpty({
-        message: '验证码不能为空'
+        message: 'captcha cannot be empty'
     })
     captcha: string;
 }

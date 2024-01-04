@@ -15,6 +15,8 @@ import { Permission } from './entities/permission.entity';
 import { md5 } from 'src/utils';
 import { LoginUserDto } from './dto/login-user.dto';
 import { LoginUserVo } from './vo/login-user.vo';
+import { UpdateUserPasswordDto } from './dto/update-user-password.dto';
+import { UpdateUserDto } from './dto/udpate-user.dto';
 @Injectable()
 export class UserService {
   private logger: Logger = new Logger();
@@ -108,32 +110,95 @@ export class UserService {
     };
     return vo;
   }
-
+  async findUserDetailById(userId: number) {
+    const user = await this.userRepository.findOne({
+      where: {
+        id: userId,
+      },
+    });
+    return user;
+  }
   async findUserById(userId: number, isAdmin: boolean) {
-    const user =  await this.userRepository.findOne({
-        where: {
-            id: userId,
-            isAdmin
-        },
-        relations: [ 'roles', 'roles.permissions']
+    const user = await this.userRepository.findOne({
+      where: {
+        id: userId,
+        isAdmin,
+      },
+      relations: ['roles', 'roles.permissions'],
     });
 
     return {
-        id: user.id,
-        username: user.username,
-        isAdmin: user.isAdmin,
-        roles: user.roles.map(item => item.name),
-        permissions: user.roles.reduce((arr, item) => {
-            item.permissions.forEach(permission => {
-                if(arr.indexOf(permission) === -1) {
-                    arr.push(permission);
-                }
-            })
-            return arr;
-        }, [])
-    }
-}
+      id: user.id,
+      username: user.username,
+      isAdmin: user.isAdmin,
+      roles: user.roles.map((item) => item.name),
+      permissions: user.roles.reduce((arr, item) => {
+        item.permissions.forEach((permission) => {
+          if (arr.indexOf(permission) === -1) {
+            arr.push(permission);
+          }
+        });
+        return arr;
+      }, []),
+    };
+  }
 
+  async updatePassword(userId: number, passwordDto: UpdateUserPasswordDto){
+    // 1. check if CAPTCHA is valid? (expired?, match?)
+    const captcha = await this.redisService.get(`update_password_captcha_${passwordDto.email}`);
+    if (!captcha) {
+      throw new HttpException('CAPTCHA is expired', HttpStatus.BAD_REQUEST);
+    }
+    if (captcha !== passwordDto.captcha) {
+      throw new HttpException('CAPTCHA is not match', HttpStatus.BAD_REQUEST);
+    }
+
+    // 2. find user's object and modify it's password
+    const foundUser = await this.userRepository.findOneBy({
+      id: userId
+    });
+    foundUser.password = md5(passwordDto.password);
+
+    // 3. save user to database
+    try{
+      this.userRepository.save(foundUser);
+      return 'Success to update password';
+    }catch(e){
+      this.logger.error(e,UserService.name);
+      throw new HttpException('Fail to update password', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async update(userId: number, updateUserDto: UpdateUserDto) {
+    // 1. check if CAPTCHA is valid? (expired?, match?)
+    const captcha = await this.redisService.get(`update_user_captcha_${updateUserDto.email}`);
+    if (!captcha) {
+      throw new HttpException('CAPTCHA is expired', HttpStatus.BAD_REQUEST);
+    }
+    if (captcha !== updateUserDto.captcha) {
+      throw new HttpException('CAPTCHA is not match', HttpStatus.BAD_REQUEST);
+    }
+
+    // 2. find user's object and modify the info if it's not empty
+    const foundUser = await this.userRepository.findOneBy({
+      id: userId
+    });
+    if(updateUserDto.headPic){
+      foundUser.headPic = updateUserDto.headPic;
+    }
+    if(updateUserDto.nickName){
+      foundUser.nickName = updateUserDto.nickName;
+    }
+
+    // 3. save user to database
+    try{
+      this.userRepository.save(foundUser);
+      return 'Success to update user info';
+    }catch(e){
+      this.logger.error(e,UserService.name);
+      throw new HttpException('Fail to update user info', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 
   async initData() {
     const user1 = new User();

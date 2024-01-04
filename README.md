@@ -10,3 +10,4 @@ Redis
 backend interface:
 [1. Register and CAPTCHA](/assets/1.png)
 [2. Login with JWT token or password](/assets/2.png)
+3. Update user info and password(use interceptor to implements log)
