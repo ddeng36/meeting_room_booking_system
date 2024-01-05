@@ -12,18 +12,19 @@ DevOps: Docker, NGINX
 ## Features
 ### backend interface:
 #### Interface document
-The document is on http://localhost:3000/api-doc, start server before access it.
+1. The API document is on http://localhost:3000/api-doc, start server before access it.
+2. use npm run repl to test the module and service, the history log is in .nestjs_repl_history.
+#### backend AOP implementation:
+1. use Interceptors to implements log, and customize response
+2. use Guards to validate loin user and permission(RBAC)
+3. use Pipes to validate request body
+4. use Swagger to document api
+5. use Filter to customize exception error
 #### User management
 1. Register and CAPTCHA
 2. Login with password, access with JWT token
 3. Update user info and password
 4. User list and pagination, search and filter
 5. freeze user
-
-
-### backend AOP implementation:
-1. use Interceptors to implements log, and customize response
-2. use Guards to validate loin user and permission
-3. use Pipes to validate request body
-4. use Swagger to document api
-5. use Filter to customize exception error
+#### Meeting room management
+1. list, search and filter, create, update and delete the meeting room
