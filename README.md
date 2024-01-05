@@ -36,3 +36,5 @@ await getBookingService().init-data()
 1. user can get list, search and filter the booking.
 2. user can book room, and urge the manager to confirm.
 3. manager can confirm or cancel the booking.
+#### Statics management
+1. Manager can get the statics of user and meeting room.
