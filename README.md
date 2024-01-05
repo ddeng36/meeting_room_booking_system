@@ -20,7 +20,6 @@ The document is on http://localhost:3000/api-doc, start server before access it.
 4. User list and pagination, search and filter
 5. freeze user
 
-
 ### backend AOP implementation:
 1. use Interceptors to implements log, and customize response
 2. use Guards to validate loin user and permission
